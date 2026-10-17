@@ -57,8 +57,10 @@ see each recipe.
 
 Requires [pixi](https://pixi.sh). It installs Python and all dependencies from conda-forge.
 
+> On NixOs: `nix develop --command data-forge <shell>`
 
 ```console
+pixi run -e dev pre-commit autoupdate
 pixi run new-recipe <dataset>   # copies the template
 cd recipes/<dataset>
 # set `issue` in recipe.yaml, adapt open_source() and to_healpix() in convert.py,
