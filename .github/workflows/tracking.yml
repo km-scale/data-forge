@@ -1,0 +1,210 @@
+# Data forge: dataset tracking automation
+#
+# Job "welcome" (per issue):
+#   * sets size / help labels from the issue form answers
+#   * assigns the current event milestone (if CURRENT_MILESTONE is set)
+#   * posts a one-time welcome comment with next steps
+#     (offers get the Waterpark support-desk instructions)
+#
+# Job "reconcile" (global, serialised):
+#   * links every dataset issue of the current milestone as a sub-issue of the tracking issue
+#   * rebuilds the "offers" and "wishes" checklists in the tracking issue body
+#     from the current set of dataset issues (open = [ ], completed = [x],
+#     not planned = struck through)
+#   The checklists are regenerated from scratch on every run, so a skipped or
+#   cancelled run never leaves them wrong. Run it manually (workflow_dispatch)
+#   after the first setup or after editing issues by hand.
+#
+# Required repository variable (Settings > Secrets and variables > Actions > Variables):
+#   DATASET_TRACKING_ISSUE   number of the tracking issue, e.g. 12
+# Optional:
+#   CURRENT_MILESTONE        milestone title for new dataset issues, e.g. "Hackathon 2027"
+#
+# Adding issues to the project board is done by the board's built-in
+# "Auto-add to project" workflow (see SETUP.md), so no PAT is needed here.
+
+name: "Data forge: tracking"
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled, closed, reopened]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+env:
+  TRACKING_ISSUE: ${{ vars.DATASET_TRACKING_ISSUE }}
+  SUPPORT_EMAIL: waterpark@support.dkrz.de
+  CURRENT_MILESTONE: ${{ vars.CURRENT_MILESTONE }}
+
+jobs:
+  welcome:
+    if: >-
+      github.event_name == 'issues' &&
+      (github.event.action == 'opened' || github.event.action == 'labeled') &&
+      contains(github.event.issue.labels.*.name, 'dataset') &&
+      format('{0}', github.event.issue.number) != vars.DATASET_TRACKING_ISSUE
+    runs-on: ubuntu-latest
+    concurrency:
+      group: dataset-welcome-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const tracking = process.env.TRACKING_ISSUE;
+            const support = process.env.SUPPORT_EMAIL;
+
+            // Re-read the issue: labels in the event payload can be stale
+            // because the form applies several labels at once.
+            const { data: issue } = await github.rest.issues.get({
+              owner, repo, issue_number: context.payload.issue.number });
+            const labels = issue.labels.map(l => l.name);
+            const kind = labels.includes('data-offer') ? 'offer'
+                       : labels.includes('data-wish') ? 'wish' : null;
+            if (!kind) { core.info('Not an offer or wish yet.'); return; }
+
+            function formField(body, heading) {
+              // Issue forms render answers as "### <label>\n\n<value>"
+              const re = new RegExp(`###\\s*${heading}[^\\n]*\\n+([^\\n]+)`, 'i');
+              const m = (body || '').match(re);
+              return m ? m[1].trim() : null;
+            }
+
+            // Labels derived from form answers (offers only).
+            if (kind === 'offer') {
+              const add = [];
+              const sizes = {
+                '< 1 TB': 'size:S', '1 - 10 TB': 'size:M', '10 - 100 TB': 'size:L',
+                '100 TB - 1 PB': 'size:XL', '> 1 PB': 'size:XXL',
+              };
+              const size = sizes[formField(issue.body, 'Estimated total volume')];
+              if (size && !labels.some(l => l.startsWith('size:'))) add.push(size);
+              const conv = formField(issue.body, 'Can you run the conversion');
+              if (conv && !conv.startsWith('Yes')) add.push('needs-conversion-help');
+              const fresh = add.filter(l => !labels.includes(l));
+              if (fresh.length) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: fresh });
+              }
+            }
+
+            // Event milestone, unless a maintainer already set one.
+            const msTitle = process.env.CURRENT_MILESTONE;
+            if (msTitle && !issue.milestone) {
+              const ms = await github.paginate(github.rest.issues.listMilestones,
+                { owner, repo, state: 'open', per_page: 100 });
+              const m = ms.find(x => x.title === msTitle);
+              if (m) {
+                await github.rest.issues.update({ owner, repo, issue_number: issue.number, milestone: m.number });
+              } else {
+                core.warning(`Milestone "${msTitle}" not found or closed.`);
+              }
+            }
+
+            // One-time welcome comment.
+            const marker = '<!-- dataset-tracking-welcome -->';
+            const comments = await github.paginate(github.rest.issues.listComments,
+              { owner, repo, issue_number: issue.number, per_page: 100 });
+            if (comments.some(c => (c.body || '').includes(marker))) return;
+
+            const subjectText = `[data-forge #${issue.number}] ${issue.title}`;
+            const subject = encodeURIComponent(subjectText);
+            const body = kind === 'offer' ? [
+              marker,
+              `Thanks @${issue.user.login}! This dataset is now listed in #${tracking} and on the project board.`,
+              '',
+              '**Next step:** please write to the Waterpark support desk so we can arrange the sample upload privately:',
+              '',
+              `📧 [${support}](mailto:${support}?subject=${subject}), subject: \`${subjectText}\``,
+              '',
+              'The sample should contain **all variables you plan to provide, but only a few time steps**.',
+              'Please keep credentials, internal paths and embargoed details out of this issue.',
+              '',
+              'Status is tracked on the project board. Technical discussion that is useful for others is welcome here.',
+            ] : [
+              marker,
+              `Thanks @${issue.user.login}! Your request is listed in #${tracking}.`,
+              '',
+              'Anyone else interested in this data: please add a 👍 to this issue instead of opening a duplicate.',
+              'If you know who produces the dataset, tagging them here helps a lot.',
+            ];
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: issue.number, body: body.join('\n') });
+
+  reconcile:
+    if: >-
+      vars.DATASET_TRACKING_ISSUE != '' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (contains(github.event.issue.labels.*.name, 'dataset') ||
+        (github.event.action == 'unlabeled' &&
+         contains(fromJSON('["dataset","data-offer","data-wish"]'), github.event.label.name))) &&
+       format('{0}', github.event.issue.number) != vars.DATASET_TRACKING_ISSUE)
+    runs-on: ubuntu-latest
+    # One run at a time. A newer pending run replaces an older pending one,
+    # which is fine because every run rebuilds the full state.
+    concurrency:
+      group: dataset-reconcile
+      cancel-in-progress: false
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const tracking = Number(process.env.TRACKING_ISSUE);
+            const api = { headers: { 'X-GitHub-Api-Version': '2022-11-28' } };
+
+            // All dataset issues, open and closed.
+            const all = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, labels: 'dataset', state: 'all', per_page: 100 });
+            const datasets = all
+              .filter(i => !i.pull_request && i.number !== tracking)
+              // Only the current event: issues with its milestone (or none yet).
+              .filter(i => !process.env.CURRENT_MILESTONE || !i.milestone ||
+                           i.milestone.title === process.env.CURRENT_MILESTONE)
+              .sort((a, b) => a.number - b.number);
+
+            // ---- 1. sub-issues ----
+            const subs = await github.paginate('GET /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+              { owner, repo, issue_number: tracking, per_page: 100, ...api });
+            const linked = new Set(subs.map(s => s.id));
+            for (const i of datasets) {
+              if (linked.has(i.id)) continue;
+              try {
+                await github.request('POST /repos/{owner}/{repo}/issues/{issue_number}/sub_issues',
+                  { owner, repo, issue_number: tracking, sub_issue_id: i.id, ...api });
+                core.info(`Linked #${i.number}`);
+              } catch (e) {
+                // 422: already has another parent, or the parent hit GitHub's sub-issue limit.
+                core.warning(`Could not link #${i.number}: ${e.status} ${e.message}`);
+              }
+            }
+
+            // ---- 2. checklists in the tracking issue body ----
+            const line = i => {
+              if (i.state === 'open') return `- [ ] #${i.number}`;
+              if (i.state_reason === 'not_planned') return `- [ ] ~~#${i.number}~~ (not planned)`;
+              return `- [x] #${i.number}`;
+            };
+            const has = (i, l) => i.labels.some(x => (x.name || x) === l);
+            const sections = {
+              offers: datasets.filter(i => has(i, 'data-offer')).map(line),
+              wishes: datasets.filter(i => has(i, 'data-wish') && !has(i, 'data-offer')).map(line),
+            };
+
+            const { data: t } = await github.rest.issues.get({ owner, repo, issue_number: tracking });
+            let body = t.body || '';
+            for (const [name, lines] of Object.entries(sections)) {
+              const start = `<!-- ${name}:start -->`, end = `<!-- ${name}:end -->`;
+              const re = new RegExp(`${start}[\\s\\S]*?${end}`);
+              if (!re.test(body)) { core.warning(`Markers for "${name}" missing in #${tracking}.`); continue; }
+              const content = lines.length ? lines.join('\n') : '_None yet._';
+              body = body.replace(re, `${start}\n${content}\n${end}`);
+            }
+            if (body !== (t.body || '')) {
+              await github.rest.issues.update({ owner, repo, issue_number: tracking, body });
+              core.info('Tracking issue updated.');
+            } else {
+              core.info('Tracking issue already up to date.');
+            }

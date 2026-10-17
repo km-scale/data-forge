@@ -1,0 +1,37 @@
+target-version = "py311"
+line-length = 110
+extend-exclude = ["site"]
+
+[lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "N",        # naming
+    "D",        # docstrings
+    "ANN",      # annotations (mypy --strict does the deep checks)
+    "SIM",      # simplifications
+    "PTH",      # pathlib
+    "PL",       # pylint
+    "RUF",      # ruff specific
+    "C4",       # comprehensions
+    "RET",      # returns
+    "ARG",      # unused arguments
+    "BLE",      # blind except
+]
+ignore = [
+    "PLR2004",  # magic values: zoom levels, cell counts etc. are clearer inline
+    "D105",     # magic method docstrings
+]
+
+[lint.pydocstyle]
+convention = "numpy"
+
+[lint.per-file-ignores]
+# main() functions are CLI glue: many branches are fine there
+"scripts/*.py" = ["PLR0912", "PLR0915"]
+
+[format]
+docstring-code-format = true

@@ -1,0 +1,119 @@
+[workspace]
+name = "data-forge"
+description = "Getting datasets ready for km-scale hackathons"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+requires-pixi = ">=0.81"
+
+# ---------------------------------------------------------------------------
+# Environments
+#   default  validator and recipe check (what producers need to check output)
+#   dev      everything: linting, typing, doctests, docs, pre-commit
+#   docs     only the site build
+# Each recipe in recipes/ has its own pixi workspace with its own lock file.
+# ---------------------------------------------------------------------------
+
+[dependencies]
+python = "3.12.*"
+zarr = ">=3,<4"
+xarray = ">=2025.1"
+numpy = ">=2"
+pyyaml = ">=6"
+s3fs = ">=2024.6"
+
+[feature.check.dependencies]
+ruff = ">=0.6"
+mypy = ">=1.11"
+pytest = ">=8"
+types-pyyaml = "*"
+pre-commit = "*"
+
+[feature.docs.dependencies]
+mkdocs = ">=1.6,<2"
+mkdocs-material = ">=9.5"
+mkdocs-gen-files = ">=0.5"
+mkdocs-literate-nav = ">=0.6"
+mkdocstrings-python = ">=1.10"
+
+[environments]
+default = { solve-group = "default" }
+dev = { features = ["check", "docs"], solve-group = "default" }
+docs = { features = ["docs"], solve-group = "default" }
+
+[activation.env]
+DISABLE_MKDOCS_2_WARNING = "true"
+
+# ---------------------------------------------------------------------------
+# Tasks: `pixi task list` shows them, `pixi run ci` runs everything CI runs.
+# ---------------------------------------------------------------------------
+
+[tasks.lint]
+cmd = "ruff check . && ruff format --check ."
+default-environment = "dev"
+description = "Lint and check formatting"
+
+[tasks.fmt]
+cmd = "ruff check --fix . && ruff format ."
+default-environment = "dev"
+description = "Auto-fix lint findings and format"
+
+[tasks.typecheck]
+cmd = "mypy scripts"
+default-environment = "dev"
+description = "mypy --strict on scripts/ (recipes: see recipe-checks)"
+
+[tasks.doctest]
+cmd = "pytest scripts"
+default-environment = "dev"
+description = "Run the doctests of scripts/ (recipes: see recipe-checks)"
+
+[tasks.doctest-coverage]
+cmd = "python scripts/check_doctests.py scripts recipes"
+description = "Fail if a public function has no doctest example"
+
+[tasks.recipes]
+cmd = "python scripts/check_recipes.py {{ paths }}"
+args = [{ arg = "paths", default = "" }]
+description = "Check recipe folders (files, metadata) and validate published samples"
+
+[tasks.recipe-checks]
+cmd = "python scripts/recipe_tasks.py {{ paths }}"
+args = [{ arg = "paths", default = "" }]
+description = "Strict typing and doctests of each recipe, in the recipe's own environment"
+
+[tasks.validate]
+cmd = "python scripts/validate_healpix_zarr.py {{ store }} -v"
+args = ["store"]
+description = "Validate a converted store"
+
+[tasks.new-recipe]
+cmd = "python scripts/new_recipe.py {{ name }}"
+args = ["name"]
+description = "Start a new recipe from the template"
+
+[tasks.docs]
+cmd = "mkdocs build --strict"
+default-environment = "docs"
+description = "Build the documentation site (fails on warnings)"
+
+[tasks.serve]
+cmd = "mkdocs serve"
+default-environment = "docs"
+description = "Preview the documentation site with live reload"
+
+[tasks.install-hooks]
+cmd = "pre-commit install"
+default-environment = "dev"
+description = "Install the git pre-commit hooks"
+
+[tasks.ci]
+depends-on = [
+    { task = "lint", environment = "dev" },
+    { task = "typecheck", environment = "dev" },
+    { task = "doctest", environment = "dev" },
+    { task = "doctest-coverage" },
+    { task = "recipes" },
+    { task = "recipe-checks" },
+    { task = "docs", environment = "docs" },
+]
+description = "Everything CI runs"

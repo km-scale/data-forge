@@ -1,0 +1,202 @@
+name: "📦 Offer a dataset"
+description: You produce or hold a dataset and want it available (HEALPix / Zarr v3) during the hackathon.
+title: "[Data offer] <model or dataset name>"
+labels: ["dataset", "data-offer"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for offering data! This issue is **public**. Please don't post credentials,
+        unpublished results or anything under embargo here.
+
+        **How this works**
+        1. You fill in this form. The issue is linked automatically to the dataset tracking issue and the project board.
+        2. You send a small sample (a few time steps, all variables) to us. The upload route is arranged privately via
+           **waterpark@support.dkrz.de** (put this issue number in the subject).
+        3. We draft a conversion recipe (`recipes/<name>/` in this repo) from the sample and hand it over to you.
+        4. You run it on the full dataset and check the output with the validator.
+        5. The converted data is made available on your node and/or optionally
+           on Waterpark DKRZ HEALPix hub (e.g. an important subset on Waterpark are also possible).
+
+        Details: [data provision guidelines](https://github.com/km-scale/data-forge/blob/main/docs/data-provision.md)
+
+  - type: input
+    id: dataset_name
+    attributes:
+      label: Dataset name
+      description: Short, unique name. Used as the recipe folder name and in store paths.
+      placeholder: e.g. icon-esm-er_hist_r1i1p1f1
+    validations:
+      required: true
+
+  - type: input
+    id: contact
+    attributes:
+      label: Contact person(s)
+      description: GitHub handles and institution. Email addresses go to the private ticket, not here.
+      placeholder: "@jdoe (Institute X)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Short description
+      description: Model / product, experiment.
+    validations:
+      required: true
+
+  - type: textarea
+    id: variables
+    attributes:
+      label: Variables and output frequencies
+      description: List variables (CF standard names if possible) and their time resolution.
+      placeholder: |
+        tas, pr, uas, vas: 1h
+        ta, ua, va, hus on 19 pressure levels: 6h
+    validations:
+      required: true
+
+  - type: input
+    id: time_span
+    attributes:
+      label: Time span
+      placeholder: e.g. 2020-01-01 to 2029-12-31
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source_grid
+    attributes:
+      label: Current grid
+      options:
+        - Already HEALPix
+        - ICON unstructured (triangular)
+        - Regular lat/lon
+        - Rotated pole / regional
+        - Gaussian (reduced or regular)
+        - Cubed sphere
+        - Other (explain below)
+    validations:
+      required: true
+
+  - type: input
+    id: native_resolution
+    attributes:
+      label: Native horizontal resolution
+      placeholder: e.g. ~5 km, R2B9, 0.25°
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source_format
+    attributes:
+      label: Current file format
+      options:
+        - NetCDF / NetCDF4
+        - GRIB
+        - Zarr v2
+        - Zarr v3
+        - Other (explain below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: volume
+    attributes:
+      label: Estimated total volume (uncompressed, all variables)
+      description: Used for storage planning. A rough guess is fine.
+      options:
+        - "< 1 TB"
+        - "1 - 10 TB"
+        - "10 - 100 TB"
+        - "100 TB - 1 PB"
+        - "> 1 PB"
+        - "Unknown"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Where does the data live now?
+      options:
+        - Your HPC centre
+        - Own S3 / object store
+        - Waterpark S3 data hub at DRKZ
+        - Cloud provider bucket
+        - Other / mixed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: Preferred hosting of the converted data
+      description: Hosting on Waterpark depends on available space and is not guaranteed.
+      options:
+        - Own HPC storage,
+        - Own S3 endpoint
+        - Waterpark (DKRZ S3), full dataset
+        - Own S3 endpoint, important subset on Waterpark
+        - Not sure yet
+    validations:
+      required: true
+
+  - type: textarea
+    id: subset
+    attributes:
+      label: Important subset
+      description: >-
+        If not everything can go to Waterpark: which variables, period and zoom levels matter most
+        for the hackathon?
+      placeholder: |
+        tas, pr, uas, vas at 1h, 2020-2021, zoom 0 to 9
+    validations:
+      required: false
+
+  - type: dropdown
+    id: can_convert
+    attributes:
+      label: Can you run the conversion on the full dataset yourselves?
+      description: We provide the recipe. You need compute close to the data.
+      options:
+        - "Yes, we have compute and people"
+        - "Partly, we need help"
+        - "No"
+    validations:
+      required: true
+
+  - type: input
+    id: license
+    attributes:
+      label: License
+      placeholder: e.g. CC-BY-4.0
+    validations:
+      required: true
+
+  - type: input
+    id: available_by
+    attributes:
+      label: Earliest date the full dataset can be available
+      placeholder: e.g. 2027-02
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Special vertical coordinates, ensembles, known quirks, related publications or DOIs.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have read the data provision guidelines.
+          required: true
+        - label: I will send an email to waterpark@support.dkrz.de with this issue number to arrange the sample upload.
+          required: true

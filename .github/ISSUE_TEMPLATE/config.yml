@@ -1,0 +1,10 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Private data questions (test uploads, credentials)
+    url: mailto:waterpark@support.dkrz.de
+    about: >-
+      Anything that should not be public goes to the Waterpark support desk.
+      Please put the GitHub issue number in the subject, e.g. "[data-forge #42] test upload".
+  - name: Data provision guidelines
+    url: https://github.com/km-scale/data-forge/blob/main/docs/data-provision.md
+    about: Formats, conventions and the conversion workflow for hackathon datasets.
