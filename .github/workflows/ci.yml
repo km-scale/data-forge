@@ -17,7 +17,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - "recipes/**"
+              - "scripts/**"
+              - "docs/**"
+              - "mkdocs.yml"
+              - "pixi.toml"
+              - "pixi.lock"
+              - "mypy.ini"
+              - "pytest.ini"
+              - "ruff.toml"
+              - ".github/workflows/ci.yml"
+
   checks:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
