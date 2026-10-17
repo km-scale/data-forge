@@ -1,0 +1,51 @@
+# Adds the recipe checklist to the PR description when a PR touches a recipe.
+# Uses pull_request_target so it also works for PRs from forks; it never checks
+# out or runs PR code, it only edits the description.
+
+name: Recipe checklist
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - "recipes/**"
+      - "!recipes/_template/**"
+
+permissions:
+  pull-requests: write
+
+jobs:
+  checklist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- recipe-checklist -->';
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            // Re-read: the payload body can be stale if the author just edited it.
+            const { data } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+            const body = data.body || '';
+            if (body.includes(marker)) return;
+
+            const checklist = [
+              marker,
+              '## Recipe checklist',
+              '',
+              '- [ ] Created with `pixi run new-recipe <name>`; `name` matches the folder in `recipe.yaml` and `pixi.toml`',
+              '- [ ] `issue` in `recipe.yaml` points to the data-offer issue',
+              '- [ ] Dependencies added with `pixi add` and `pixi.lock` committed',
+              '- [ ] Ran `pixi run convert <sample> <output>` on the sample',
+              '- [ ] `pixi run validate <output>` passes on the sample output',
+              '- [ ] `pixi run ci` passes locally (lint, strict typing, doctests for every public function)',
+              '- [ ] `sample_output.url` set if the sample is readable without credentials, so CI can validate it',
+              '- [ ] `hosting` filled in if already known (optional)',
+              '- [ ] README filled in: input location pattern, run command, resources used',
+              '- [ ] No credentials, internal hostnames or embargoed details in the PR',
+            ].join('\n');
+
+            await github.rest.pulls.update({
+              owner, repo, pull_number: pr.number,
+              body: `${body}\n\n${checklist}`,
+            });
