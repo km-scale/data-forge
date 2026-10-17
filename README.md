@@ -12,7 +12,7 @@ HEALPix (nest, ellipsoidal) Zarr v3.
 |---|---|
 | **provide a dataset** | Open a [📦 data offer](https://github.com/km-scale/data-forge/issues/new?template=01-data-offer.yml) |
 | **analyse a dataset that isn't listed** | Open a [🙋 data wish](https://github.com/km-scale/data-forge/issues/new?template=02-data-wish.yml) or 👍 an existing one |
-| **see what's planned** | Check the pinned tracking issue and the [project board](PROJECT_BOARD_URL) |
+| **see what's planned** | Check the pinned tracking issue and the [project board](https://github.com/orgs/km-scale/projects/3/views/1) |
 | **run or adapt a recipe** | Look in [`recipes/`](recipes/) |
 | **ask something private** (upload data snippets) | Email `waterpark@support.dkrz.de` with `[data-forge #<issue>]` in the subject |
 

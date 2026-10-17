@@ -14,7 +14,7 @@ This issue collects **all datasets planned for the June 2027 hackathon**. It sho
 |---|---|
 | **Producing / holding data** you'd like to provide | Open a [📦 data offer](https://github.com/km-scale/data-forge/issues/new?template=01-data-offer.yml) |
 | **Hoping to analyse** a dataset that isn't listed | Open a [🙋 data wish](https://github.com/km-scale/data-forge/issues/new?template=02-data-wish.yml), or 👍 an existing one |
-| Just following | Subscribe to this issue and watch the [project board](PROJECT_BOARD_URL) |
+| Just following | Subscribe to this issue and watch the [project board](https://github.com/orgs/km-scale/projects/3) |
 
 Each dataset gets **its own issue**, which is linked here automatically. Please keep discussion in the dataset's issue rather than in this one.
 
@@ -27,7 +27,7 @@ Each dataset gets **its own issue**, which is linked here automatically. Please 
 5. **Validated**: output passes `validate_healpix_zarr.py`.
 6. **Available**: readable at its final location (producer endpoint, Waterpark, or an important subset on Waterpark). The issue is closed and ticked below.
 
-Status of every dataset is shown on the [project board](PROJECT_BOARD_URL).
+Status of every dataset is shown on the [project board](https://github.com/orgs/km-scale/projects/3).
 
 **Public vs. private:** design questions, conventions and conversion problems that others can learn from belong in GitHub. Upload routes, credentials, internal paths and embargoed details go to the support desk.
 
