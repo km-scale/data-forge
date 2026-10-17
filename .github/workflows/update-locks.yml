@@ -1,0 +1,81 @@
+# Monthly lock file updates, opened as PRs and auto-merged once CI passes.
+# Recipe locks are left alone on purpose: they pin conversions for reproducibility.
+
+name: Update lock files
+
+on:
+  schedule:
+    - cron: "17 5 1 * *" # 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pixi:
+    runs-on: ubuntu-latest
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.11.1
+        with:
+          pixi-version: v0.82.0
+          run-install: false
+
+      - name: Update root and template locks
+        run: |
+          echo "## Root workspace" > diff.md
+          pixi update --json | pixi exec pixi-diff-to-markdown >> diff.md
+          echo -e "\n## Recipe template" >> diff.md
+          pixi update --manifest-path recipes/_template/pixi.toml --json \
+            | pixi exec pixi-diff-to-markdown >> diff.md
+
+      - id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app.outputs.token }}
+          branch: update/pixi-lock
+          delete-branch: true
+          add-paths: |
+            pixi.lock
+            recipes/_template/pixi.lock
+          commit-message: "deps: update pixi lock files"
+          title: "Update pixi lock files"
+          body-path: diff.md
+
+      - if: steps.pr.outputs.pull-request-number
+        run: gh pr merge --auto --squash "${{ steps.pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+
+  flake:
+    runs-on: ubuntu-latest
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - id: update
+        uses: DeterminateSystems/update-flake-lock@main
+        with:
+          token: ${{ steps.app.outputs.token }}
+          branch: update/flake-lock
+          pr-title: "Update flake.lock"
+          commit-msg: "deps: update flake.lock"
+
+      - if: steps.update.outputs.pull-request-number
+        run: gh pr merge --auto --squash "${{ steps.update.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}

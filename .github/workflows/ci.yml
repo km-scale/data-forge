@@ -16,9 +16,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  DISABLE_MKDOCS_2_WARNING: "true"
-
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -27,37 +24,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: prefix-dev/setup-pixi@v0.11.1
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements-*.txt
+          pixi-version: v0.82.0
+          environments: dev docs
+          cache: true
+          # runs `pixi install --locked` because pixi.lock is committed
 
-      - uses: extractions/setup-just@v2
-
-      - run: just setup
-
-      - run: just lint
-      - run: just typecheck
-      - run: just doctest
-      - run: just doctest-coverage
+      - run: pixi run -e dev lint
+      - run: pixi run -e dev typecheck
+      - run: pixi run -e dev doctest
+      - run: pixi run doctest-coverage
 
       - name: Recipes
         run: |
-          # PRs: only the recipes they touch, unless shared code changed. main: all recipes.
-          folders=""
+          # PRs: only recipes they touch, unless shared code changed. main: all recipes.
+          paths=""
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
-            if ! grep -qE '^(scripts/|requirements-)' <<<"$changed"; then
-              folders=$(awk -F/ '$1=="recipes" && $2!="_template" && NF>2 {print "recipes/"$2}' <<<"$changed" \
-                | sort -u | while read -r d; do [ -d "$d" ] && echo "$d"; done | tr '\n' ' ')
-              if [ -z "$folders" ]; then echo "no recipes changed"; exit 0; fi
+            if ! grep -qE '^(scripts/|pixi\.(toml|lock)$|mypy\.ini$|pytest\.ini$)' <<<"$changed"; then
+              paths=$(grep '^recipes/' <<<"$changed" | tr '\n' ' ' || true)
+              if [ -z "$paths" ]; then echo "no recipes changed"; exit 0; fi
             fi
           fi
-          just recipes $folders
+          pixi run python scripts/check_recipes.py $paths
+          pixi run python scripts/recipe_tasks.py --locked $paths
 
       - name: Build site
-        run: just docs
+        run: pixi run docs
 
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
