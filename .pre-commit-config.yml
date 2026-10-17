@@ -1,0 +1,67 @@
+# Install once with `pixi run install-hooks`.
+# Run on everything with `pixi run -e dev pre-commit run --all-files`.
+#
+# The checks run through pixi, so they use exactly the tool versions in pixi.lock
+# (the same as CI). Recipe checks run in each recipe's own environment and only
+# for recipes touched by the commit.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe] # mkdocs.yml uses !!python/name tags
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files # keep sample data out of git
+        args: [--maxkb=1024]
+        exclude: (^|/)pixi\.lock$
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: pixi run -e dev ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-format
+        name: ruff format
+        entry: pixi run -e dev ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+
+      - id: mypy
+        name: mypy --strict (scripts)
+        entry: pixi run -e dev mypy scripts
+        language: system
+        files: ^(scripts/.*\.py|mypy\.ini|pixi\.lock)$
+        pass_filenames: false
+
+      - id: doctest
+        name: doctests (scripts)
+        entry: pixi run -e dev pytest scripts
+        language: system
+        files: ^(scripts/.*\.py|pytest\.ini|pixi\.lock|recipes/_template/(recipe\.yaml|pixi\.toml))$
+        pass_filenames: false
+
+      - id: doctest-coverage
+        name: every public function has a doctest
+        entry: pixi run python scripts/check_doctests.py
+        language: system
+        files: ^(scripts|recipes)/.*\.py$
+
+      - id: recipe-metadata
+        name: recipe files and metadata
+        entry: pixi run python scripts/check_recipes.py --no-validate
+        language: system
+        files: ^recipes/
+
+      - id: recipe-checks
+        name: recipe typing and doctests (own environment)
+        entry: pixi run python scripts/recipe_tasks.py
+        language: system
+        files: ^recipes/.*\.(py|toml|lock|yaml)$

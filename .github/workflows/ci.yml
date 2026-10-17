@@ -1,0 +1,79 @@
+# Lint, strict typing, doctests, recipe checks and the docs build.
+# On main, the built site is deployed to GitHub Pages.
+
+name: "Data forge: CI"
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DISABLE_MKDOCS_2_WARNING: "true"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+
+      - uses: extractions/setup-just@v2
+
+      - run: just setup
+
+      - run: just lint
+      - run: just typecheck
+      - run: just doctest
+      - run: just doctest-coverage
+
+      - name: Recipes
+        run: |
+          # PRs: only the recipes they touch, unless shared code changed. main: all recipes.
+          folders=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+            if ! grep -qE '^(scripts/|requirements-)' <<<"$changed"; then
+              folders=$(awk -F/ '$1=="recipes" && $2!="_template" && NF>2 {print "recipes/"$2}' <<<"$changed" \
+                | sort -u | while read -r d; do [ -d "$d" ] && echo "$d"; done | tr '\n' ' ')
+              if [ -z "$folders" ]; then echo "no recipes changed"; exit 0; fi
+            fi
+          fi
+          just recipes $folders
+
+      - name: Build site
+        run: just docs
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          path: site
+
+  deploy:
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,49 @@
+# Recipe metadata. Copy the whole _template folder to recipes/<dataset-name>/ and fill this in.
+# Checked in CI by scripts/check_recipes.py.
+
+name: my-dataset                 # must equal the folder name
+issue: 0                         # data-offer issue number in km-scale/data-forge
+maintainers:                     # GitHub handles of the people running the recipe
+  - "@producer-handle"
+  - "@dkrz-handle"
+license: CC-BY-4.0
+
+source:
+  description: Short description of the input data
+  format: netcdf                 # netcdf | grib | zarr2 | zarr3 | other
+  grid: icon                     # icon | latlon | rotated | gaussian | healpix | other
+  native_resolution: "~5 km"
+
+target:
+  max_zoom: 9                    # finest HEALPix zoom level written
+  min_zoom: 0                    # coarsest zoom level of the pyramid
+  variables: [tas, pr]
+  chunks:                        # chunk sizes per dimension at max_zoom
+    time: 24
+    cell: 262144                 # 4**9, one chunk = one zoom-0 base pixel at zoom 9
+
+# Descriptive metadata, kept so catalogue entries (STAC, intake) can be generated later.
+period:
+  start: null                    # first time step, e.g. 2020-01-01
+  end: null                      # last time step, e.g. 2029-12-31
+references: []                   # DOIs or publications describing the data
+
+# Optional: where the converted data will be available. Fill in once it is known; the recipe
+# works without it. Access via S3 is recommended but not required, and we can help with hosting
+# (on Waterpark, space permitting). Leave everything as is if undecided.
+hosting:
+  full:
+    location: undecided          # producer | waterpark | undecided
+    url: null                    # any readable location, e.g. s3://bucket/x.zarr or https://host/x.zarr
+    endpoint_url: null           # only for S3 on a non-AWS endpoint, e.g. https://s3.example.org
+  # Optional: an important subset on Waterpark, e.g. when the full data stays with the producer
+  # or does not fit. Leave null if not needed.
+  waterpark_subset:
+    url: null
+    description: null            # which variables, period and zoom levels, and why
+
+# Converted sample, used by CI to run the validator. Leave null until it exists.
+# Must be readable without credentials (e.g. public S3 or HTTPS).
+sample_output:
+  url: null                      # e.g. s3://bucket/samples/my-dataset.zarr
+  endpoint_url: null             # e.g. https://s3.example.org

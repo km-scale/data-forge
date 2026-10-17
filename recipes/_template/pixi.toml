@@ -1,0 +1,53 @@
+# Environment of this recipe. `pixi run convert <input> <output>` runs it,
+# `pixi.lock` pins every package so the conversion can be rerun later exactly.
+# Add what the recipe needs with `pixi add <package>` (conda-forge) or
+# `pixi add --pypi <package>`.
+
+[workspace]
+name = "my-dataset"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+requires-pixi = ">=0.82"
+
+[dependencies]
+python = "3.12.*"
+zarr = ">=3,<4"
+xarray = ">=2025.1"
+numpy = ">=2"
+dask = "*"
+netcdf4 = "*"
+pyyaml = ">=6"
+s3fs = ">=2024.6"
+
+# [pypi-dependencies]
+# grid-doctor = "*"    # remapping non-HEALPix input
+
+# Checks run by the data-forge repo (pre-commit and CI); not needed to run the conversion.
+[feature.check.dependencies]
+mypy = ">=1.11"
+pytest = ">=8"
+types-pyyaml = "*"
+
+[environments]
+default = { solve-group = "default" }
+check = { features = ["check"], solve-group = "default" }
+
+[tasks.convert]
+cmd = "python convert.py --recipe recipe.yaml --input '{{ input }}' --output '{{ output }}'"
+args = ["input", "output"]
+description = "Convert input files (path or glob) into a HEALPix Zarr v3 store"
+
+[tasks.validate]
+cmd = "python ../../scripts/validate_healpix_zarr.py '{{ store }}' -v"
+args = ["store"]
+description = "Validate a converted store against the conventions"
+
+[tasks.typecheck]
+cmd = "mypy --config-file ../../mypy.ini convert.py"
+default-environment = "check"
+description = "mypy --strict on convert.py"
+
+[tasks.doctest]
+cmd = "pytest -c ../../pytest.ini --rootdir ../.. convert.py"
+default-environment = "check"
+description = "Run the doctests of convert.py"

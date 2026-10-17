@@ -1,0 +1,62 @@
+name: "🙋 Request a dataset"
+description: You want to analyse a dataset during the hackathon that isn't on the list yet.
+title: "[Data wish] <dataset you would like>"
+labels: ["dataset", "data-wish"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a new request, please check the **dataset tracking issue** and the project board.
+        If the dataset is already listed, add a 👍 and a comment with your use case there instead.
+
+        Requests help us and data producers prioritise. They are not a guarantee that a dataset will be converted.
+
+  - type: input
+    id: dataset_name
+    attributes:
+      label: Dataset you'd like
+      description: As precise as possible (model, experiment, member, source).
+      placeholder: e.g. ERA5 hourly single levels
+    validations:
+      required: true
+
+  - type: input
+    id: requester
+    attributes:
+      label: Requested by
+      placeholder: "@jdoe (Institute X), team / hackathon node"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: What do you want to do with it?
+      description: Analysis idea, which hackathon topic or node, comparison with which other datasets.
+    validations:
+      required: true
+
+  - type: textarea
+    id: subset
+    attributes:
+      label: Minimum useful subset
+      description: Variables, period, frequency and HEALPix zoom level you actually need. Smaller asks get done first.
+      placeholder: |
+        pr, tas at 1h, 2020-2021, zoom 8 is enough
+    validations:
+      required: true
+
+  - type: input
+    id: producer
+    attributes:
+      label: Known data producer or contact
+      description: Who holds the data? Tag them if they are on GitHub.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+    validations:
+      required: false
