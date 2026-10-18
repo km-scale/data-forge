@@ -1,5 +1,7 @@
-# Lint, strict typing, doctests, recipe checks and the docs build.
-# On main, the built site is deployed to GitHub Pages.
+# Lint, strict typing, doctests and recipe checks, plus the docs build.
+# Jobs only run on PRs when relevant files changed (skipped jobs count as passed
+# for required checks). On main the site is always built and deployed to Pages.
+# "Run workflow" lets you choose: everything, or only rebuild/redeploy the docs.
 
 name: "Data forge: CI"
 
@@ -8,6 +10,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run:
+        description: What to run
+        type: choice
+        options: [all, docs]
+        default: all
 
 permissions:
   contents: read
@@ -20,9 +28,11 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
       - id: filter
@@ -32,30 +42,38 @@ jobs:
             code:
               - "recipes/**"
               - "scripts/**"
-              - "docs/**"
-              - "mkdocs.yml"
               - "pixi.toml"
               - "pixi.lock"
               - "mypy.ini"
               - "pytest.ini"
               - "ruff.toml"
               - ".github/workflows/ci.yml"
+            docs:
+              - "docs/**"
+              - "mkdocs.yml"
+              - "recipes/**"
+              - "scripts/**"
+              - "pixi.toml"
+              - "pixi.lock"
+              - ".github/workflows/ci.yml"
 
   checks:
     needs: changes
-    if: needs.changes.outputs.code == 'true' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
+      || github.event_name == 'push'
+      || (github.event_name == 'workflow_dispatch' && inputs.run == 'all')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: prefix-dev/setup-pixi@v0.11.2
+      - uses: prefix-dev/setup-pixi@v0.11.1
         with:
           pixi-version: v0.82.0
-          environments: dev docs
+          environments: dev
           cache: true
-          # runs `pixi install --locked` because pixi.lock is committed
 
       - run: pixi run -e dev lint
       - run: pixi run -e dev typecheck
@@ -64,7 +82,7 @@ jobs:
 
       - name: Recipes
         run: |
-          # PRs: only recipes they touch, unless shared code changed. main: all recipes.
+          # PRs: only recipes they touch, unless shared code changed. Otherwise: all recipes.
           paths=""
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
@@ -76,17 +94,35 @@ jobs:
           pixi run python scripts/check_recipes.py $paths
           pixi run python scripts/recipe_tasks.py --locked $paths
 
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.11.1
+        with:
+          pixi-version: v0.82.0
+          environments: docs
+          cache: true
+
       - name: Build site
         run: pixi run docs
 
-      - uses: actions/upload-pages-artifact@v5
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: site
 
   deploy:
-    needs: checks
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [checks, docs]
+    if: >-
+      always()
+      && github.event_name != 'pull_request'
+      && github.ref == 'refs/heads/main'
+      && needs.docs.result == 'success'
+      && (needs.checks.result == 'success' || needs.checks.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -96,4 +132,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4
