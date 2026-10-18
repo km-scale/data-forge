@@ -82,13 +82,13 @@ jobs:
 
       - name: Recipes
         run: |
-          # PRs: only recipes they touch, unless shared code changed. Otherwise: all recipes.
+          # PRs: the template plus the recipes they touch, unless shared code changed
+          # (then everything). Otherwise: all recipes.
           paths=""
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
             if ! grep -qE '^(scripts/|pixi\.(toml|lock)$|mypy\.ini$|pytest\.ini$)' <<<"$changed"; then
-              paths=$(grep '^recipes/' <<<"$changed" | tr '\n' ' ' || true)
-              if [ -z "$paths" ]; then echo "no recipes changed"; exit 0; fi
+              paths="recipes/_template $(grep '^recipes/' <<<"$changed" | tr '\n' ' ' || true)"
             fi
           fi
           pixi run python scripts/check_recipes.py $paths
