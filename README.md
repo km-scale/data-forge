@@ -90,7 +90,5 @@ Each recipe has its own `pixi.lock`, so a conversion can be rerun later with exa
 
 
 
-The site is published at **https://km-scale.github.io/data-forge/** and renders every recipe with its
+The site is published at [https://km-scale.github.io/data-forge] and renders every recipe with its
 metadata, notes and code.
-
-Maintained by the DKRZ data team. Setup notes for maintainers: [SETUP.md](SETUP.md)
