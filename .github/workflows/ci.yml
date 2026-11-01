@@ -34,9 +34,9 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       docs: ${{ steps.filter.outputs.docs }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             code:
@@ -65,11 +65,11 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && inputs.run == 'all')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: prefix-dev/setup-pixi@v0.11.1
+      - uses: prefix-dev/setup-pixi@v0.11.2
         with:
           pixi-version: v0.82.0
           environments: dev
@@ -99,9 +99,9 @@ jobs:
     if: needs.changes.outputs.docs == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: prefix-dev/setup-pixi@v0.11.1
+      - uses: prefix-dev/setup-pixi@v0.11.2
         with:
           pixi-version: v0.82.0
           environments: docs
@@ -110,7 +110,7 @@ jobs:
       - name: Build site
         run: pixi run docs
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           path: site
@@ -132,4 +132,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
